@@ -1,2 +1,3 @@
-camcalibrator
+CamCalibrator
 =============
+Simple stereo camera calibration.
