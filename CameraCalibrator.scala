@@ -104,9 +104,9 @@ class CameraCalibrator {
 
             // Draw the corners
             cvDrawChessboardCorners(image, boardSize, imageCorners, cornerCount(0), found)
-            val canvas = new CanvasFrame("Corners on Chessboard: " + file.getName, 1)
-            canvas.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE)
-            canvas.showImage(image)
+            //val canvas = new CanvasFrame("Corners on Chessboard: " + file.getName, 1)
+            //canvas.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE)
+            //canvas.showImage(image)
         }
 
         successes

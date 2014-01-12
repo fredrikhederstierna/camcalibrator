@@ -27,8 +27,13 @@ import com.googlecode.javacv.cpp.opencv_highgui._
 
 import scala.collection.mutable.ArrayBuffer
 
-
 object Main extends App {
+
+    // ------- chess board setup
+    final val CHESS_PATTERN_COLS: Int = 9
+    final val CHESS_PATTERN_ROWS: Int = 6
+    final val CAMERA_LEFT_PORT  : Int = 1
+    final val CAMERA_RIGHT_PORT : Int = 2
 
 
     /** Load an image and show in a CanvasFrame.
@@ -117,100 +122,119 @@ object Main extends App {
         canvas.showImage(image)
     }
 
-
-
-    //---------Code start Main
-  val grabber = new OpenCVFrameGrabber(1) // 1 for next camera
-
-  grabber.start()
-
-    //--------tune exposure
-    for (i <- 0 until 20) {
-      val img = grabber.grab()
+    /** Open grabber ant take some images */
+    def setupCamera(port: Int, frames: Int): OpenCVFrameGrabber = {
+      //---------Code start Main
+      val grabber = new OpenCVFrameGrabber(port)
+      grabber.start()
+      var imgGrab = grabber.grab()
+      //--------tune exposure
+      for (i <- 0 until 20) {
+        imgGrab = grabber.grab()
+      }
+      grabber
     }
 
-  println("Taking image...")
 
-    //--------take image
-  val img = grabber.grab()
-  if (img != null) {
+    //--------------------
+    def calibrateCamera(file: File) {
 
-    val s = "snapshot.jpg"
-    val f = new File(s)
-
-    val fileList = new ArrayBuffer[File]   
-    fileList += f
-
-    cvSaveImage(s, img)
-
-
-
-
-
-    //------------ calibrate
     // Create calibrator object
     val cameraCalibrator = new CameraCalibrator()
 
+      // file list
+    val fileListL = new ArrayBuffer[File]   
+    fileListL += file
+
 
     // Add the corners from the chessboard
-    //    val boardSize = new CvSize(6, 4)
-    val boardSize = new CvSize(9, 6)
-    cameraCalibrator.addChessboardPoints(fileList, boardSize)
-
-
-
-
-
+    val boardSize = new CvSize(CHESS_PATTERN_COLS, CHESS_PATTERN_ROWS)
+    cameraCalibrator.addChessboardPoints(fileListL, boardSize)
 
 
     // Load image for that will be undistorted
-    val image = loadAndShowOrExit(fileList(0))
+    val imageL = loadAndShowOrExit(fileListL(0))
 
     // Calibrate camera
-    cameraCalibrator.calibrate(cvGetSize(image))
+    cameraCalibrator.calibrate(cvGetSize(imageL))
 
     // Undistort
-    val undistorted = cameraCalibrator.remap(image)
+    val undistortedL = cameraCalibrator.remap(imageL)
 
     // Display camera matrix
-    val m = cameraCalibrator.cameraMatrix
-    println("Camera intrinsic: " + m.rows + "x" + m.cols)
+    val mL = cameraCalibrator.cameraMatrix
+    println("Camera intrinsic: " + mL.rows + "x" + mL.cols)
     for (i <- 0 until 3) {
         for (j <- 0 until 3) {
-          println("%7.2f  ".format(m.get(i, j)))
+          println("%7.2f  ".format(mL.get(i, j)))
         }
         println("")
     }
 
-
-
-
     //--------show corners
     // Load image for that will be matched with checker board
-    val image2 = loadAndShowOrExit(fileList(0))
+    val imageL2 = loadAndShowOrExit(fileListL(0))
 
     // Find chessboard corners
-    //    val patternSize = new CvSize(6, 4)
-    val patternSize = new CvSize(9, 6)
+    val patternSize = new CvSize(CHESS_PATTERN_COLS, CHESS_PATTERN_ROWS)
     val corners = new CvPoint2D32f(patternSize.width * patternSize.height)
     val cornerCount = Array(1)
     val flags = CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_NORMALIZE_IMAGE
-    val patternFound = cvFindChessboardCorners(image2, patternSize, corners, cornerCount, flags)
+    val patternFound = cvFindChessboardCorners(imageL2, patternSize, corners, cornerCount, flags)
 
     println("pattern found: " + patternFound)
     // Draw the corners on image
-    cvDrawChessboardCorners(image2, patternSize, corners, cornerCount(0), patternFound)
-    show(image2, "Corners on Chessboard")
-
-
-
-
+    cvDrawChessboardCorners(imageL2, patternSize, corners, cornerCount(0), patternFound)
+    show(imageL2, "ChessboardCorners: " + file.getName)
 
 
     //-----------show undistored image
     //--cvFlip(img, img, 1);// l-r = 90_degrees_steps_anti_clockwise
-    show(undistorted, "Undistorted image")
+    show(undistortedL, "Undistorted: " + file.getName)
+    }
 
-  
-  }
+    //---------- main code
+
+
+    //--------take images
+
+    println("Taking image Left...")
+    val grabberL = setupCamera(CAMERA_LEFT_PORT, 20)
+    val imgL = grabberL.grab()
+    if (imgL == null) {
+      println("Take Left Fail, Abort")
+      System.exit(1)
+    }
+    val sL = "camSnapshotLeft.jpg"
+    val fL = new File(sL)
+    val fileListL = new ArrayBuffer[File]   
+    fileListL += fL
+    cvSaveImage(sL, imgL)
+    println("Snapshot, stop.")
+    grabberL.stop()
+    println("Snapshot, flush.")
+      //grabberL.flush()
+    println("Snapshot, done.")
+
+
+    println("Taking image Right...")
+    val grabberR = setupCamera(CAMERA_RIGHT_PORT, 20)
+    val imgR = grabberR.grab()
+    if (imgR == null) {
+      println("Take Right Fail, Abort")
+      System.exit(1)
+    }
+    val sR = "camSnapshotRight.jpg"
+    val fR = new File(sR)
+    cvSaveImage(sR, imgR)
+    println("Snapshot, stop.")
+    grabberR.stop()
+    println("Snapshot, flush.")
+      //grabberR.flush()
+    println("Snapshot, done.")
+
+
+    //------------ calibrate
+    calibrateCamera(fL)
+    calibrateCamera(fR)
 }
